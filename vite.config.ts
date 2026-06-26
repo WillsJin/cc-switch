@@ -16,6 +16,8 @@ export default defineConfig(({ command }) => ({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
+    target: ["safari14", "es2020"],
+    cssTarget: "safari14",
   },
   server: {
     port: 3000,
@@ -29,4 +31,3 @@ export default defineConfig(({ command }) => ({
   clearScreen: false,
   envPrefix: ["VITE_", "TAURI_"],
 }));
-
