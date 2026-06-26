@@ -1,0 +1,63 @@
+name: Build macOS 11 Unsigned
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Intel macOS app
+    runs-on: macos-15-intel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.12.3
+          run_install: false
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Patch local macOS build config
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const path = "src-tauri/tauri.conf.json";
+          const config = JSON.parse(fs.readFileSync(path, "utf8"));
+          config.bundle.macOS = config.bundle.macOS || {};
+          config.bundle.macOS.minimumSystemVersion = "11.0";
+          config.bundle.createUpdaterArtifacts = false;
+          fs.writeFileSync(path, JSON.stringify(config, null, 2) + "\n");
+          NODE
+
+      - name: Build unsigned app bundle
+        run: pnpm tauri build --target x86_64-apple-darwin --bundles app
+
+      - name: Zip app bundle
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            src-tauri/target/x86_64-apple-darwin/release/bundle/macos/CC\ Switch.app \
+            CC-Switch-macOS11-x64-unsigned.zip
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC-Switch-macOS11-x64-unsigned
+          path: CC-Switch-macOS11-x64-unsigned.zip
+          if-no-files-found: error
